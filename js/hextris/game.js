@@ -769,12 +769,10 @@ export default class HextrisGame {
         break;
 
       case GAME_STATES.PAUSED:
-        const now2 = Date.now();
-        const dt2 = (now2 - gameVars.lastTime) / 16.666 * gameVars.rush;
+        // 暂停状态下只渲染UI，不更新游戏逻辑
         this.aniId = requestAnimationFrame(this.animLoop.bind(this));
-        update(dt2);
         render();
-        gameVars.lastTime = now2;
+        // 不调用update，真正暂停游戏逻辑
         break;
     }
   }

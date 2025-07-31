@@ -419,15 +419,21 @@ export default class UI {
    * 更新分数点击区域
    */
   updateScoreClickArea(scoreY) {
+    // 扩大点击区域，使其更容易被点击到
+    const clickAreaWidth = 300 * settings.scale;  // 从200增加到300
+    const clickAreaHeight = 100 * settings.scale; // 从60增加到100
+    
     this.scoreClickArea = {
-      x: GameGlobal.canvas.width / 2 - 100 * settings.scale,
-      y: scoreY - 20 * settings.scale,
-      width: 200 * settings.scale,
-      height: 60 * settings.scale
+      x: GameGlobal.canvas.width / 2 - clickAreaWidth / 2,
+      y: scoreY - clickAreaHeight / 2,  // 以分数位置为中心
+      width: clickAreaWidth,
+      height: clickAreaHeight
     };
     
     // 添加调试信息
     console.log('分数点击区域已更新:', this.scoreClickArea);
+    console.log('分数显示位置:', scoreY);
+    console.log('Canvas尺寸:', GameGlobal.canvas.width, 'x', GameGlobal.canvas.height);
   }
 
   /**
@@ -440,17 +446,23 @@ export default class UI {
       this.updateScoreClickArea(scoreY);
     }
     
-    if (this.scoreClickArea && 
-        x >= this.scoreClickArea.x && 
-        x <= this.scoreClickArea.x + this.scoreClickArea.width &&
-        y >= this.scoreClickArea.y && 
-        y <= this.scoreClickArea.y + this.scoreClickArea.height) {
-      console.log('分数点击检测成功:', x, y, this.scoreClickArea);
+    // 详细的点击检测调试信息
+    console.log('=== 分数点击检测 ===');
+    console.log('点击坐标:', x, y);
+    console.log('点击区域:', this.scoreClickArea);
+    
+    const inXRange = x >= this.scoreClickArea.x && x <= this.scoreClickArea.x + this.scoreClickArea.width;
+    const inYRange = y >= this.scoreClickArea.y && y <= this.scoreClickArea.y + this.scoreClickArea.height;
+    
+    console.log('X范围检查:', inXRange, `(${x} >= ${this.scoreClickArea.x} && ${x} <= ${this.scoreClickArea.x + this.scoreClickArea.width})`);
+    console.log('Y范围检查:', inYRange, `(${y} >= ${this.scoreClickArea.y} && ${y} <= ${this.scoreClickArea.y + this.scoreClickArea.height})`);
+    
+    if (this.scoreClickArea && inXRange && inYRange) {
+      console.log('✅ 分数点击检测成功');
       return true;
     }
     
-    // 添加调试信息
-    console.log('分数点击检测失败:', x, y, this.scoreClickArea);
+    console.log('❌ 分数点击检测失败');
     return false;
   }
 
