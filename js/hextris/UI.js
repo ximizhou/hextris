@@ -402,20 +402,36 @@ export default class UI {
   drawScore() {
     const ctx = GameGlobal.canvas.getContext('2d');
     
-    // 绘制分数背景
-    const scoreWidth = 200 * settings.scale;
-    const scoreHeight = 60 * settings.scale;
-    const scoreX = (GameGlobal.canvas.width - scoreWidth) / 2;
-    const scoreY = 20 * settings.scale;
-
-    ctx.fillStyle = 'rgba(44, 62, 80, 0.8)';
-    ctx.fillRect(scoreX, scoreY, scoreWidth, scoreHeight);
-
-    // 绘制分数
+    // 将分数显示位置往下调，去掉背景
+    const scoreY = 80 * settings.scale; // 从20调整到80，位置往下调
+    
+    // 绘制分数（无背景）
     ctx.fillStyle = this.textColor;
     ctx.font = `bold ${Math.min(32 * settings.scale, 32)}px ${this.fontFamily}`;
     ctx.textAlign = 'center';
-    ctx.fillText(gameVars.score.toString(), GameGlobal.canvas.width / 2, scoreY + scoreHeight / 2 + 10);
+    ctx.fillText(gameVars.score.toString(), GameGlobal.canvas.width / 2, scoreY + 10);
+    
+    // 保存分数点击区域信息，用于点击检测
+    this.scoreClickArea = {
+      x: GameGlobal.canvas.width / 2 - 100 * settings.scale,
+      y: scoreY - 20 * settings.scale,
+      width: 200 * settings.scale,
+      height: 60 * settings.scale
+    };
+  }
+
+  /**
+   * 检查分数点击
+   */
+  checkScoreClick(x, y) {
+    if (this.scoreClickArea && 
+        x >= this.scoreClickArea.x && 
+        x <= this.scoreClickArea.x + this.scoreClickArea.width &&
+        y >= this.scoreClickArea.y && 
+        y <= this.scoreClickArea.y + this.scoreClickArea.height) {
+      return true;
+    }
+    return false;
   }
 
   /**

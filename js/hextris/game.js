@@ -477,6 +477,15 @@ export default class HextrisGame {
 
     // 在游戏状态下根据点击位置旋转六边形 - 参考原版逻辑
     if (gameVars.gameState === GAME_STATES.PLAYING) {
+      // 检查是否点击了分数区域
+      if (gameVars.UI && typeof gameVars.UI.checkScoreClick === 'function') {
+        if (gameVars.UI.checkScoreClick(x, y)) {
+          console.log('点击分数，暂停游戏');
+          this.pause();
+          return;
+        }
+      }
+      
       const centerX = GameGlobal.canvas.width / 2;
       
       if (x < centerX) {
