@@ -412,25 +412,45 @@ export default class UI {
     ctx.fillText(gameVars.score.toString(), GameGlobal.canvas.width / 2, scoreY + 10);
     
     // 保存分数点击区域信息，用于点击检测
+    this.updateScoreClickArea(scoreY);
+  }
+
+  /**
+   * 更新分数点击区域
+   */
+  updateScoreClickArea(scoreY) {
     this.scoreClickArea = {
       x: GameGlobal.canvas.width / 2 - 100 * settings.scale,
       y: scoreY - 20 * settings.scale,
       width: 200 * settings.scale,
       height: 60 * settings.scale
     };
+    
+    // 添加调试信息
+    console.log('分数点击区域已更新:', this.scoreClickArea);
   }
 
   /**
    * 检查分数点击
    */
   checkScoreClick(x, y) {
+    // 如果scoreClickArea不存在，则重新计算
+    if (!this.scoreClickArea) {
+      const scoreY = 80 * settings.scale;
+      this.updateScoreClickArea(scoreY);
+    }
+    
     if (this.scoreClickArea && 
         x >= this.scoreClickArea.x && 
         x <= this.scoreClickArea.x + this.scoreClickArea.width &&
         y >= this.scoreClickArea.y && 
         y <= this.scoreClickArea.y + this.scoreClickArea.height) {
+      console.log('分数点击检测成功:', x, y, this.scoreClickArea);
       return true;
     }
+    
+    // 添加调试信息
+    console.log('分数点击检测失败:', x, y, this.scoreClickArea);
     return false;
   }
 

@@ -169,6 +169,13 @@ export default class HextrisGame {
     
     // 初始化输入处理
     this.initInput();
+    
+    // 确保分数点击区域被正确初始化
+    if (gameVars.UI && typeof gameVars.UI.updateScoreClickArea === 'function') {
+      const scoreY = 80 * settings.scale;
+      gameVars.UI.updateScoreClickArea(scoreY);
+      console.log('init: 初始化分数点击区域');
+    }
   }
 
   /**
@@ -477,13 +484,20 @@ export default class HextrisGame {
 
     // 在游戏状态下根据点击位置旋转六边形 - 参考原版逻辑
     if (gameVars.gameState === GAME_STATES.PLAYING) {
+      console.log('游戏进行中，检查分数点击:', x, y);
+      
       // 检查是否点击了分数区域
       if (gameVars.UI && typeof gameVars.UI.checkScoreClick === 'function') {
-        if (gameVars.UI.checkScoreClick(x, y)) {
+        const isScoreClick = gameVars.UI.checkScoreClick(x, y);
+        console.log('分数点击检测结果:', isScoreClick);
+        
+        if (isScoreClick) {
           console.log('点击分数，暂停游戏');
           this.pause();
           return;
         }
+      } else {
+        console.log('UI.checkScoreClick方法不存在');
       }
       
       const centerX = GameGlobal.canvas.width / 2;
@@ -578,6 +592,13 @@ export default class HextrisGame {
       settings.speedUpKeyHeld = false;
       gameVars.manualRush = 1; // 重置手动加速变量
       console.log('强制重置加速状态');
+    }
+    
+    // 确保分数点击区域被正确初始化
+    if (gameVars.UI && typeof gameVars.UI.updateScoreClickArea === 'function') {
+      const scoreY = 80 * settings.scale;
+      gameVars.UI.updateScoreClickArea(scoreY);
+      console.log('resumeGame: 初始化分数点击区域');
     }
   }
 
