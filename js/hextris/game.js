@@ -446,7 +446,18 @@ export default class HextrisGame {
     // 在菜单状态下点击开始游戏
     if (gameVars.gameState === GAME_STATES.MENU) {
       console.log('开始游戏');
+      
+      // 立即开始游戏
       this.resumeGame();
+      
+      // 触发教程淡出动画（游戏已经开始，标题和教程逐渐消失）
+      if (gameVars.UI && typeof gameVars.UI.startTutorialFadeOut === 'function') {
+        gameVars.UI.startTutorialFadeOut();
+      }
+      
+      // 重置触摸状态，防止后续触摸事件干扰
+      this.resetTouchState();
+      
       return;
     }
 
@@ -475,6 +486,28 @@ export default class HextrisGame {
         // 右侧点击 - 向左旋转（逆时针）
         gameVars.MainHex.rotate(-1);
       }
+    }
+  }
+
+  /**
+   * 重置触摸状态
+   */
+  resetTouchState() {
+    // 重置所有触摸相关的状态变量
+    if (typeof window !== 'undefined') {
+      // 清除可能存在的定时器
+      if (window.longPressTimer) {
+        clearTimeout(window.longPressTimer);
+        window.longPressTimer = null;
+      }
+      
+      // 重置触摸状态
+      window.isLongPressing = false;
+      window.hasTriggeredLongPress = false;
+      window.isMouseEvent = false;
+      window.pressStartTime = 0;
+      window.pressX = 0;
+      window.pressY = 0;
     }
   }
 
@@ -613,7 +646,8 @@ export default class HextrisGame {
    * 设置开始界面
    */
   setStartScreen() {
-    this.init();
+    // 不调用this.init()，避免重置UI状态
+    // this.init();
     gameVars.gameState = GAME_STATES.MENU;
     this.animLoop();
   }

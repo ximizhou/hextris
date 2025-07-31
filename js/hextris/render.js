@@ -12,6 +12,9 @@ const GAME_STATES = {
 // 创建UI实例
 const ui = new UI();
 
+// 将UI实例添加到gameVars中，使其可以被游戏主逻辑访问
+gameVars.UI = ui;
+
 /**
  * 旋转点坐标
  */
@@ -143,7 +146,7 @@ export function render() {
   
   // 绘制游戏区域背景
   if (gameVars.gameState === GAME_STATES.PLAYING || gameVars.gameState === GAME_STATES.GAME_OVER || 
-      gameVars.gameState === GAME_STATES.PAUSED || gameVars.gameState === GAME_STATES.MENU) {
+      gameVars.gameState === GAME_STATES.PAUSED) {
     if (gameVars.op < 1) {
       gameVars.op += 0.01;
     }
@@ -222,6 +225,16 @@ export function render() {
     case GAME_STATES.PAUSED:
       ui.drawPauseScreen();
       break;
+  }
+
+  // 在游戏开始后仍然更新教程透明度（用于渐变效果）
+  if (gameVars.gameState === GAME_STATES.PLAYING && ui.tutorialFadeOut) {
+    ui.updateTutorialAlpha();
+    
+    // 在游戏开始后仍然绘制标题和教程，直到它们完全消失
+    if (ui.tutorialAlpha > 0) {
+      ui.drawFadingElements();
+    }
   }
 
   // 更新设置
