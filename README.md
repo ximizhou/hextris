@@ -274,3 +274,132 @@ js/hextris/
 ## 许可证
 
 基于原版Hextris游戏开发，遵循原版许可证。
+
+---
+
+## 1. 现象复盘
+
+- **第一次游戏**：分数点击区可用
+- **第二次游戏**：分数点击区不可用
+- **第三次游戏**：又可用
+- **第四次游戏**：又不可用
+- ...如此循环
+
+---
+
+## 2. 关键代码链路
+
+### 入口
+- `render.js` 只创建一次 `UI` 实例，赋值到 `gameVars.UI`
+- `drawScore()` 每帧在 `PLAYING`/`PAUSED` 状态下被调用，理论上每帧都更新 `scoreClickArea`
+- `checkScoreClick(x, y)` 直接用 `this.scoreClickArea` 检查
+
+### 重新开始流程
+1. 死亡后，`handleClickTap` 触发 `init()`
+2. `init()` 重新初始化游戏数据
+3. `init()` 末尾强制调用 `gameVars.UI.updateScoreClickArea(scoreY)`
+4. `render()` 进入新一轮循环，`drawScore()` 每帧都更新 `scoreClickArea`
+
+---
+
+## 3. 可能的根因分析
+
+### 1. **渲染时机与点击时机错位**
+- 你点击“重新开始”后，`init()` 立即执行，`scoreClickArea` 被更新，但**此时画面还没渲染新分数**。
+- 如果你**很快点击分数**，此时 `scoreClickArea` 还是“上一次游戏”的位置/尺寸。
+- 由于 `drawScore()` 依赖于 `settings.scale`、`canvas` 尺寸等，偶数次可能因为某些全局变量未及时刷新，导致区域错乱。
+
+### 2. **UI状态未完全重置**
+- `scoreClickArea` 依赖于 `drawScore()` 的调用，但如果某一帧没被调用，区域就不对。
+- 你在 `init()` 里手动调用 `updateScoreClickArea`，但这和 `drawScore()` 的调用时机可能不一致。
+
+### 3. **微信开发者工具事件队列问题**
+- 事件触发和渲染帧不同步，导致“偶数次”时，点击事件发生在 `drawScore()` 之前。
+
+---
+
+## 4. 彻底解决方案
+
+### **核心原则：分数点击区域的更新必须和画面渲染严格同步！**
+
+#### **A. 只在 `drawScore()` 内部更新 `scoreClickArea`，其他地方一律不手动更新**
+- 保证每一帧的点击区域和实际显示完全一致。
+
+#### **B. `checkScoreClick` 只在 `scoreClickArea` 存在时才判定，否则直接返回 false**
+- 不再在 `checkScoreClick` 内部“补算”区域，避免时序错乱。
+
+#### **C. 点击事件处理时，强制先渲染一帧再判定点击**
+- 这样能保证 `scoreClickArea` 是最新的。
+
+---
+
+## 5. 具体代码调整建议
+
+### 1. `UI.js` 修改
+
+```js
+// 只允许 drawScore 内部更新 scoreClickArea
+drawScore() {
+  const ctx = GameGlobal.canvas.getContext('2d');
+  const scoreY = 80 * settings.scale;
+  ctx.fillStyle = this.textColor;
+  ctx.font = `bold ${Math.min(32 * settings.scale, 32)}px ${this.fontFamily}`;
+  ctx.textAlign = 'center';
+  ctx.fillText(gameVars.score.toString(), GameGlobal.canvas.width / 2, scoreY + 10);
+
+  // 只在这里更新
+  this.scoreClickArea = {
+    x: GameGlobal.canvas.width / 2 - 150 * settings.scale,
+    y: scoreY - 50 * settings.scale,
+    width: 300 * settings.scale,
+    height: 100 * settings.scale
+  };
+}
+
+checkScoreClick(x, y) {
+  // 只判定，不再补算
+  if (!this.scoreClickArea) return false;
+  return (
+    x >= this.scoreClickArea.x &&
+    x <= this.scoreClickArea.x + this.scoreClickArea.width &&
+    y >= this.scoreClickArea.y &&
+    y <= this.scoreClickArea.y + this.scoreClickArea.height
+  );
+}
+```
+
+### 2. `game.js` 修改
+
+**点击事件处理时，先强制渲染一帧再判定点击：**
+
+```js
+handleClickTap(x, y) {
+  if (!gameVars.MainHex) return;
+
+  // 先强制渲染一帧，确保scoreClickArea是最新的
+  render();
+
+  // ...后续逻辑不变
+  if (gameVars.gameState === GAME_STATES.PLAYING) {
+    if (gameVars.UI && typeof gameVars.UI.checkScoreClick === 'function') {
+      if (gameVars.UI.checkScoreClick(x, y)) {
+        this.pause();
+        return;
+      }
+    }
+    // ...旋转逻辑
+  }
+  // ...其他状态逻辑
+}
+```
+
+---
+
+## 6. 总结
+
+- **根因**：分数点击区域的更新和点击判定时机错位，导致偶数次游戏区域失效。
+- **解决**：只允许`drawScore`更新区域，点击时先渲染一帧，保证区域和画面同步。
+
+---
+
+请确认是否需要我直接帮你实现上述调整，或者你希望先理解原理再动手？

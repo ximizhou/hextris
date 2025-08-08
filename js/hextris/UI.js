@@ -26,6 +26,26 @@ export default class UI {
     // 分数透明度控制 - 按照原版方式
     this.textOpacity = 1;
     this.scoreOpacity = 1;
+    
+    // 初始化分数点击区域为null，等待drawScore首次调用时设置
+    this.scoreClickArea = null;
+  }
+
+  /**
+   * 完全重置UI状态（游戏重新开始时调用）
+   */
+  resetAllState() {
+    // 重置所有UI状态
+    this.tutorialAlpha = 1;
+    this.tutorialFadeOut = false;
+    this.textOpacity = 1;
+    this.scoreOpacity = 1;
+    
+    // 强制重置分数点击区域
+    this.scoreClickArea = null;
+    this.pauseButtonArea = null; // 重置暂停按钮区域
+    
+    console.log('UI: 完全重置所有状态');
   }
 
   /**
@@ -411,59 +431,104 @@ export default class UI {
     ctx.textAlign = 'center';
     ctx.fillText(gameVars.score.toString(), GameGlobal.canvas.width / 2, scoreY + 10);
     
-    // 保存分数点击区域信息，用于点击检测
-    this.updateScoreClickArea(scoreY);
-  }
-
-  /**
-   * 更新分数点击区域
-   */
-  updateScoreClickArea(scoreY) {
-    // 扩大点击区域，使其更容易被点击到
-    const clickAreaWidth = 300 * settings.scale;  // 从200增加到300
-    const clickAreaHeight = 100 * settings.scale; // 从60增加到100
-    
+    // 更新分数点击区域，确保与画面渲染同步
+    // 扩大点击区域，提高点击成功率
     this.scoreClickArea = {
-      x: GameGlobal.canvas.width / 2 - clickAreaWidth / 2,
-      y: scoreY - clickAreaHeight / 2,  // 以分数位置为中心
-      width: clickAreaWidth,
-      height: clickAreaHeight
+      x: GameGlobal.canvas.width / 2 - 200 * settings.scale,
+      y: scoreY - 60 * settings.scale,
+      width: 400 * settings.scale,
+      height: 120 * settings.scale
     };
     
-    // 添加调试信息
-    console.log('分数点击区域已更新:', this.scoreClickArea);
-    console.log('分数显示位置:', scoreY);
-    console.log('Canvas尺寸:', GameGlobal.canvas.width, 'x', GameGlobal.canvas.height);
+    // 绘制暂停按钮（在右上角）
+    this.drawPauseButton(ctx);
+    
+
+  }
+  
+  /**
+   * 绘制暂停按钮
+   */
+  drawPauseButton(ctx) {
+    const buttonSize = 40 * settings.scale;
+    const margin = 20 * settings.scale;
+    const x = GameGlobal.canvas.width - margin - buttonSize / 2;
+    const y = margin + buttonSize / 2;
+    
+    // 绘制圆形背景
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.beginPath();
+    ctx.arc(x, y, buttonSize / 2, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    // 绘制暂停图标
+    ctx.fillStyle = '#ffffff';
+    const iconWidth = 4 * settings.scale;
+    const iconHeight = 12 * settings.scale;
+    const gap = 2 * settings.scale;
+    
+    // 左竖线
+    ctx.fillRect(x - iconWidth - gap / 2, y - iconHeight / 2, iconWidth, iconHeight);
+    // 右竖线
+    ctx.fillRect(x + gap / 2, y - iconHeight / 2, iconWidth, iconHeight);
+    
+    // 保存暂停按钮的点击区域
+    this.pauseButtonArea = {
+      x: x - buttonSize / 2,
+      y: y - buttonSize / 2,
+      width: buttonSize,
+      height: buttonSize
+    };
+    
+
+  }
+  
+  /**
+   * 检查暂停按钮点击
+   */
+  checkPauseButtonClick(x, y) {
+    // 如果点击区域未初始化，尝试重新初始化
+    if (!this.pauseButtonArea) {
+      this.drawScore();
+      if (!this.pauseButtonArea) {
+        return false;
+      }
+    }
+    
+    const tolerance = 5; // 5像素的容错范围
+    const result = (
+      x >= this.pauseButtonArea.x - tolerance &&
+      x <= this.pauseButtonArea.x + this.pauseButtonArea.width + tolerance &&
+      y >= this.pauseButtonArea.y - tolerance &&
+      y <= this.pauseButtonArea.y + this.pauseButtonArea.height + tolerance
+    );
+    
+    return result;
   }
 
   /**
    * 检查分数点击
    */
   checkScoreClick(x, y) {
-    // 如果scoreClickArea不存在，则重新计算
+    // 如果点击区域未初始化，尝试重新初始化
     if (!this.scoreClickArea) {
-      const scoreY = 80 * settings.scale;
-      this.updateScoreClickArea(scoreY);
+      this.drawScore();
+      if (!this.scoreClickArea) {
+        return false;
+      }
     }
     
-    // 详细的点击检测调试信息
-    console.log('=== 分数点击检测 ===');
-    console.log('点击坐标:', x, y);
-    console.log('点击区域:', this.scoreClickArea);
+    // 添加额外的容错范围，提高点击成功率
+    const tolerance = 10; // 10像素的容错范围
     
-    const inXRange = x >= this.scoreClickArea.x && x <= this.scoreClickArea.x + this.scoreClickArea.width;
-    const inYRange = y >= this.scoreClickArea.y && y <= this.scoreClickArea.y + this.scoreClickArea.height;
+    const result = (
+      x >= this.scoreClickArea.x - tolerance &&
+      x <= this.scoreClickArea.x + this.scoreClickArea.width + tolerance &&
+      y >= this.scoreClickArea.y - tolerance &&
+      y <= this.scoreClickArea.y + this.scoreClickArea.height + tolerance
+    );
     
-    console.log('X范围检查:', inXRange, `(${x} >= ${this.scoreClickArea.x} && ${x} <= ${this.scoreClickArea.x + this.scoreClickArea.width})`);
-    console.log('Y范围检查:', inYRange, `(${y} >= ${this.scoreClickArea.y} && ${y} <= ${this.scoreClickArea.y + this.scoreClickArea.height})`);
-    
-    if (this.scoreClickArea && inXRange && inYRange) {
-      console.log('✅ 分数点击检测成功');
-      return true;
-    }
-    
-    console.log('❌ 分数点击检测失败');
-    return false;
+    return result;
   }
 
   /**

@@ -7,6 +7,7 @@ import waveGen from './wavegen.js';
 import { render } from './render.js';
 import { update } from './update.js';
 import { checkAndConsolidateBlocks } from './checking.js';
+import Block from './Block.js';
 
 // 游戏状态常量
 const GAME_STATES = {
@@ -34,8 +35,8 @@ export default class HextrisGame {
     // 更新屏幕设置
     updateScreenSettings();
     
-    // 初始化游戏
-    this.init();
+    // 初始化基础游戏对象，但不设置游戏状态
+    this.initGameObjects();
   }
 
   /**
@@ -63,7 +64,39 @@ export default class HextrisGame {
   }
 
   /**
-   * 初始化游戏 - 完全参考原版
+   * 初始化基础游戏对象
+   */
+  initGameObjects() {
+    // 创建MainHex对象
+    gameVars.MainHex = new Hex(settings.hexWidth);
+    gameVars.MainHex.sideLength = settings.hexWidth;
+    
+    // 初始化方块数组
+    gameVars.blocks = [];
+    
+    // 初始化其他游戏变量
+    gameVars.history = {};
+    gameVars.importedHistory = undefined;
+    gameVars.importing = 0;
+    gameVars.score = 0;
+    gameVars.prevScore = 0;
+    gameVars.spawnLane = 0;
+    gameVars.op = 0;
+    gameVars.tweetblock = false;
+    gameVars.scoreOpacity = 0;
+    gameVars.rush = 1;
+    gameVars.manualRush = 1;
+    gameVars.lastTime = Date.now();
+    
+    // 创建waveGen对象
+    gameVars.waveone = new waveGen(gameVars.MainHex);
+    
+    // 初始化输入处理
+    this.initInput();
+  }
+
+  /**
+   * 初始化游戏 - 重新开始游戏时调用
    */
   init(b = false) {
     if (settings.ending_block && b == 1) return;
@@ -73,108 +106,41 @@ export default class HextrisGame {
       this.clearSaveState();
     }
     
-    // 设置最高分
-    if (gameVars.highscores.length === 0) {
-      // 设置最高分为0
-    } else {
-      // 设置当前最高分
-    }
-    
-    gameVars.infobuttonfading = true;
-    this.hideUIElements();
-    
-    // 获取保存状态
-    let saveState = '{}';
-    try {
-      if (wx.getStorageSync) {
-        saveState = wx.getStorageSync('saveState') || '{}';
-      }
-    } catch (e) {
-      console.log('读取保存状态失败:', e);
-      saveState = '{}';
-    }
-    const parsedSaveState = JSON.parse(saveState);
-    
     // 重置游戏状态
-    gameVars.history = {};
-    gameVars.importedHistory = undefined;
-    gameVars.importing = 0;
-    gameVars.score = parsedSaveState.score || 0;
+    gameVars.score = 0;
     gameVars.prevScore = 0;
     gameVars.spawnLane = 0;
     gameVars.op = 0;
     gameVars.tweetblock = false;
     gameVars.scoreOpacity = 0;
     gameVars.gameState = GAME_STATES.PLAYING;
-    gameVars.rush = 1; // 添加rush变量
-    gameVars.manualRush = 1; // 重置手动加速变量
-    gameVars.lastTime = Date.now(); // 初始化lastTime
+    gameVars.rush = 1;
+    gameVars.manualRush = 1;
+    gameVars.lastTime = Date.now();
     
     // 更新设置
+    updateScreenSettings();
     settings.blockHeight = settings.baseBlockHeight * settings.scale;
     settings.hexWidth = settings.baseHexWidth * settings.scale;
     
-    // 创建或恢复六边形
-    gameVars.MainHex = parsedSaveState.hex || new Hex(settings.hexWidth);
-    if (parsedSaveState.hex) {
-      gameVars.MainHex.playThrough += 1;
-    }
+    // 重新创建MainHex对象
+    gameVars.MainHex = new Hex(settings.hexWidth);
     gameVars.MainHex.sideLength = settings.hexWidth;
-
-    // 处理保存的方块
-    if (parsedSaveState.blocks) {
-      parsedSaveState.blocks.map(function(o) {
-        if (gameVars.rgbToHex[o.color]) {
-          o.color = gameVars.rgbToHex[o.color];
-        }
-      });
-
-      for (let i = 0; i < parsedSaveState.blocks.length; i++) {
-        const block = parsedSaveState.blocks[i];
-        gameVars.blocks.push(block);
-      }
-    } else {
-      gameVars.blocks = [];
-    }
-
-    gameVars.gdx = parsedSaveState.gdx || 0;
-    gameVars.gdy = parsedSaveState.gdy || 0;
-    gameVars.comboTime = parsedSaveState.comboTime || 0;
-
-    // 更新六边形上的方块
-    for (let i = 0; i < gameVars.MainHex.blocks.length; i++) {
-      for (let j = 0; j < gameVars.MainHex.blocks[i].length; j++) {
-        gameVars.MainHex.blocks[i][j].height = settings.blockHeight;
-        gameVars.MainHex.blocks[i][j].settled = 0;
-      }
-    }
-
-    gameVars.MainHex.blocks.map(function(i) {
-      i.map(function(o) {
-        if (gameVars.rgbToHex[o.color]) {
-          o.color = gameVars.rgbToHex[o.color];
-        }
-      });
-    });
-
-    gameVars.MainHex.y = -100;
-
-    gameVars.startTime = Date.now();
-    // 总是创建新的waveGen对象，确保每次重新开始都使用初始状态
+    
+    // 清空方块数组
+    gameVars.blocks = [];
+    
+    // 重新创建waveGen对象
     gameVars.waveone = new waveGen(gameVars.MainHex);
-
-    gameVars.MainHex.texts = []; // 清空文本
-    gameVars.MainHex.delay = 0; // 移除延迟，立即开始游戏
-    this.hideText();
     
-    // 初始化输入处理
-    this.initInput();
-    
-    // 确保分数点击区域被正确初始化
-    if (gameVars.UI && typeof gameVars.UI.updateScoreClickArea === 'function') {
-      const scoreY = 80 * settings.scale;
-      gameVars.UI.updateScoreClickArea(scoreY);
-      console.log('init: 初始化分数点击区域');
+    // 重置UI状态
+    if (gameVars.UI) {
+      if (typeof gameVars.UI.resetAllState === 'function') {
+        gameVars.UI.resetAllState();
+      } else {
+        gameVars.UI.scoreClickArea = null;
+        gameVars.UI.pauseButtonArea = null;
+      }
     }
   }
 
@@ -194,15 +160,24 @@ export default class HextrisGame {
       if (wx && wx.onTouchStart) {
         console.log('使用微信小游戏触摸API');
         
+        // 在微信开发者工具中启用触摸模拟
+        if (wx.getSystemInfoSync) {
+          const systemInfo = wx.getSystemInfoSync();
+          console.log('系统信息:', systemInfo);
+        }
+        
         wx.onTouchStart((e) => {
           isMouseEvent = false; // 标记为触摸事件
           const touch = e.touches[0];
-          // 微信小游戏API的坐标需要从clientX/clientY获取
-          pressX = touch.clientX;
-          pressY = touch.clientY;
+          
+          // 直接使用微信小游戏API提供的坐标
+          pressX = touch.x || touch.clientX || 0;
+          pressY = touch.y || touch.clientY || 0;
           pressStartTime = Date.now();
           isLongPressing = false;
           hasTriggeredLongPress = false; // 重置长按触发标志
+          
+
           
           longPressTimer = setTimeout(() => {
             // 额外的保护：确保没有触发过点击事件
@@ -258,187 +233,9 @@ export default class HextrisGame {
         });
       }
 
-      // Canvas事件作为备用（主要用于开发调试）
-      if (GameGlobal.canvas && typeof GameGlobal.canvas.addEventListener === 'function') {
-        console.log('使用Canvas事件作为备用');
-        
-        GameGlobal.canvas.addEventListener('touchstart', (e) => {
-          isMouseEvent = false; // 标记为触摸事件
-          e.preventDefault();
-          const touch = e.touches[0];
-          // 直接使用clientX/clientY，不需要getBoundingClientRect
-          const x = touch.clientX;
-          const y = touch.clientY;
-          
-          pressX = x;
-          pressY = y;
-          pressStartTime = Date.now();
-          isLongPressing = false;
-          hasTriggeredLongPress = false; // 重置长按触发标志
-          
-          longPressTimer = setTimeout(() => {
-            // 额外的保护：确保没有触发过点击事件
-            if (gameVars.MainHex && gameVars.gameState === GAME_STATES.PLAYING && !hasTriggeredLongPress && !isMouseEvent) {
-              // 再次检查是否已经处理过点击事件
-              const currentTime = Date.now();
-              const pressDuration = currentTime - pressStartTime;
-              
-              // 如果按下时间已经超过300ms，说明可能已经处理过点击事件，不再触发长按
-              if (pressDuration >= 300) {
-                isLongPressing = true;
-                hasTriggeredLongPress = true; // 标记已触发长按
-                this.manualSpeedUp = true; // 标记为手动长按
-                if (!settings.speedUpKeyHeld) {
-                  settings.speedUpKeyHeld = true;
-                  gameVars.manualRush = 4; // 手动长按加速4倍
-                  console.log('手动长按加速开启（手动加速：' + gameVars.manualRush + '倍）');
-                }
-              }
-            }
-          }, 300);
-        });
 
-        GameGlobal.canvas.addEventListener('touchend', (e) => {
-          if (isMouseEvent) return; // 如果是鼠标事件，忽略触摸结束
-          
-          const pressDuration = Date.now() - pressStartTime;
-          
-          if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-          }
-          
-          // 先处理长按结束逻辑
-          if (isLongPressing) {
-            isLongPressing = false;
-            this.manualSpeedUp = false; // 重置手动长按标志
-            if (settings.speedUpKeyHeld) {
-              gameVars.manualRush = 1; // 重置手动长按加速
-              settings.speedUpKeyHeld = false;
-              console.log('手动长按加速关闭（手动加速：' + gameVars.manualRush + '倍）');
-            }
-          }
-          
-          // 再处理点击事件，确保没有触发过长按
-          if (pressDuration < 300 && !hasTriggeredLongPress) {
-            console.log('Canvas触发点击事件:', pressX, pressY);
-            this.handleClickTap(pressX, pressY);
-          }
-        });
 
-        // 鼠标事件（开发调试用）
-        GameGlobal.canvas.addEventListener('mousedown', (e) => {
-          isMouseEvent = true; // 标记为鼠标事件
-          // 直接使用clientX/clientY，与其他事件保持一致
-          const x = e.clientX;
-          const y = e.clientY;
-          
-          pressX = x;
-          pressY = y;
-          pressStartTime = Date.now();
-          isLongPressing = false;
-          hasTriggeredLongPress = false; // 重置长按触发标志
-          
-          longPressTimer = setTimeout(() => {
-            if (gameVars.MainHex && gameVars.gameState === GAME_STATES.PLAYING && !hasTriggeredLongPress && isMouseEvent) {
-              isLongPressing = true;
-              hasTriggeredLongPress = true; // 标记已触发长按
-              this.manualSpeedUp = true; // 标记为手动长按
-              if (!settings.speedUpKeyHeld) {
-                settings.speedUpKeyHeld = true;
-                gameVars.manualRush = 4; // 手动长按加速4倍
-                console.log('鼠标长按加速开启（手动加速：' + gameVars.manualRush + '倍）');
-              }
-            }
-          }, 300);
-        });
 
-        GameGlobal.canvas.addEventListener('mouseup', (e) => {
-          if (!isMouseEvent) return; // 如果不是鼠标事件，忽略鼠标抬起
-          
-          const pressDuration = Date.now() - pressStartTime;
-          
-          if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-          }
-          
-          // 先处理长按结束逻辑
-          if (isLongPressing) {
-            isLongPressing = false;
-            this.manualSpeedUp = false; // 重置手动长按标志
-            if (settings.speedUpKeyHeld) {
-              gameVars.manualRush = 1; // 重置手动长按加速
-              settings.speedUpKeyHeld = false;
-              console.log('鼠标长按加速关闭（手动加速：' + gameVars.manualRush + '倍）');
-            }
-          }
-          
-          // 再处理点击事件，确保没有触发过长按
-          if (pressDuration < 300 && !hasTriggeredLongPress) {
-            console.log('鼠标触发点击事件:', pressX, pressY);
-            this.handleClickTap(pressX, pressY);
-          }
-        });
-      }
-
-      // 添加全局触摸事件监听（兼容性处理）
-      if (typeof window !== 'undefined' && window.addEventListener) {
-        console.log('添加全局触摸事件监听');
-        
-        window.addEventListener('touchstart', (e) => {
-          if (e.target === GameGlobal.canvas) {
-            isMouseEvent = false; // 标记为触摸事件
-            const touch = e.touches[0];
-            pressX = touch.clientX;
-            pressY = touch.clientY;
-            pressStartTime = Date.now();
-            isLongPressing = false;
-            hasTriggeredLongPress = false; // 重置长按触发标志
-            
-            longPressTimer = setTimeout(() => {
-              if (gameVars.MainHex && gameVars.gameState === GAME_STATES.PLAYING && !hasTriggeredLongPress && !isMouseEvent) {
-                isLongPressing = true;
-                hasTriggeredLongPress = true; // 标记已触发长按
-                this.manualSpeedUp = true; // 标记为手动长按
-                if (!settings.speedUpKeyHeld) {
-                  settings.speedUpKeyHeld = true;
-                  gameVars.manualRush = 4; // 手动长按加速4倍
-                  console.log('全局长按加速开启（手动加速：' + gameVars.manualRush + '倍）');
-                }
-              }
-            }, 300);
-          }
-        });
-
-        window.addEventListener('touchend', (e) => {
-          if (e.target === GameGlobal.canvas && !isMouseEvent) {
-            const pressDuration = Date.now() - pressStartTime;
-            
-            if (longPressTimer) {
-              clearTimeout(longPressTimer);
-              longPressTimer = null;
-            }
-            
-            // 先处理长按结束逻辑
-            if (isLongPressing) {
-              isLongPressing = false;
-              this.manualSpeedUp = false; // 重置手动长按标志
-              if (settings.speedUpKeyHeld) {
-                gameVars.manualRush = 1; // 重置手动长按加速
-                settings.speedUpKeyHeld = false;
-                console.log('全局长按加速关闭（手动加速：' + gameVars.manualRush + '倍）');
-              }
-            }
-            
-            // 再处理点击事件，确保没有触发过长按
-            if (pressDuration < 300 && !hasTriggeredLongPress) {
-              console.log('全局触发点击事件:', pressX, pressY);
-              this.handleClickTap(pressX, pressY);
-            }
-          }
-        });
-      }
     } catch (e) {
       console.log('输入初始化失败:', e);
     }
@@ -448,7 +245,9 @@ export default class HextrisGame {
    * 处理点击/触摸 - 参考原版
    */
   handleClickTap(x, y) {
-    if (!gameVars.MainHex) return;
+    if (!gameVars.MainHex) {
+      return;
+    }
 
     // 在菜单状态下点击开始游戏
     if (gameVars.gameState === GAME_STATES.MENU) {
@@ -470,7 +269,6 @@ export default class HextrisGame {
 
     // 在游戏结束状态下点击重新开始
     if (gameVars.gameState === GAME_STATES.GAME_OVER) {
-      console.log('重新开始游戏');
       this.init();
       return;
     }
@@ -484,20 +282,22 @@ export default class HextrisGame {
 
     // 在游戏状态下根据点击位置旋转六边形 - 参考原版逻辑
     if (gameVars.gameState === GAME_STATES.PLAYING) {
-      console.log('游戏进行中，检查分数点击:', x, y);
+      // 检查是否点击了暂停按钮（优先级最高）
+      if (gameVars.UI && typeof gameVars.UI.checkPauseButtonClick === 'function') {
+        if (gameVars.UI.checkPauseButtonClick(x, y)) {
+          console.log('点击暂停按钮，暂停游戏');
+          this.pause();
+          return;
+        }
+      }
       
       // 检查是否点击了分数区域
       if (gameVars.UI && typeof gameVars.UI.checkScoreClick === 'function') {
-        const isScoreClick = gameVars.UI.checkScoreClick(x, y);
-        console.log('分数点击检测结果:', isScoreClick);
-        
-        if (isScoreClick) {
+        if (gameVars.UI.checkScoreClick(x, y)) {
           console.log('点击分数，暂停游戏');
           this.pause();
           return;
         }
-      } else {
-        console.log('UI.checkScoreClick方法不存在');
       }
       
       const centerX = GameGlobal.canvas.width / 2;
@@ -594,12 +394,18 @@ export default class HextrisGame {
       console.log('强制重置加速状态');
     }
     
-    // 确保分数点击区域被正确初始化
-    if (gameVars.UI && typeof gameVars.UI.updateScoreClickArea === 'function') {
-      const scoreY = 80 * settings.scale;
-      gameVars.UI.updateScoreClickArea(scoreY);
-      console.log('resumeGame: 初始化分数点击区域');
+    // 重置UI对象状态
+    if (gameVars.UI) {
+      if (typeof gameVars.UI.resetAllState === 'function') {
+        gameVars.UI.resetAllState();
+      } else {
+        gameVars.UI.scoreClickArea = null;
+        gameVars.UI.pauseButtonArea = null;
+      }
     }
+    
+    // 更新屏幕设置
+    updateScreenSettings();
   }
 
   /**
@@ -704,7 +510,6 @@ export default class HextrisGame {
       gameVars.history[gameVars.MainHex.ct].settled = settled;
     }
     
-    const Block = require('./Block.js').default;
     gameVars.blocks.push(new Block(blocklane, color, iter, distFromHex, settled));
   }
 
