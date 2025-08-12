@@ -8,13 +8,16 @@ function getScreenInfo() {
   const screenWidth = systemInfo.screenWidth;
   const screenHeight = systemInfo.screenHeight;
   
-  // 计算缩放比例，参考原始游戏的800px基准
+  // 计算缩放比例，参考原始游戏的800px基准，但使用更合适的缩放
   let scale;
   if (screenHeight > screenWidth) {
-    scale = (screenWidth / 800) * 1.4; // 1.4是原始baseScale
+    scale = (screenWidth / 800) * 1.0; // 降低缩放比例，避免方块过宽
   } else {
-    scale = (screenHeight / 800) * 1.4;
+    scale = (screenHeight / 800) * 1.0; // 降低缩放比例，避免方块过宽
   }
+  
+  // 限制缩放范围，确保视觉效果最佳
+  scale = Math.max(0.7, Math.min(scale, 1.1));
   
   return {
     screenWidth: screenWidth,
@@ -111,30 +114,30 @@ export const settings = {
   ending_block: false,
   speedUpKeyHeld: false,
   
-  // 缩放设置
-  startDist: 227, // 原始基准值
-  baseScale: 1.4, // 原始基准值
+  // 缩放设置 - 完全按照原项目设置
+  startDist: 227, // 原项目mobile版本值
+  baseScale: 1.4, // 原项目mobile版本值
   scale: screenInfo.scale,
   prevScale: screenInfo.scale,
   
   // 六边形设置
-  baseHexWidth: 87, // 原始基准值
+  baseHexWidth: 87, // 原项目值
   hexWidth: 87 * screenInfo.scale,
   
   // 方块设置
-  baseBlockHeight: 20, // 原始基准值
+  baseBlockHeight: 20, // 原项目mobile版本值
   blockHeight: 20 * screenInfo.scale,
   
   // 游戏区域设置
-  rows: 8, // 原始游戏mobile版本是7
+  rows: 7, // 原项目mobile版本是7，不是8
   
-  // 速度设置 - 完全参考原始游戏配置
-  speedModifier: 0.73, // 原始mobile版本值
-  creationSpeedModifier: 0.73, // 原始mobile版本值
-  creationDt: 1000, // 原始值
+  // 速度设置 - 完全按照原项目mobile版本配置
+  speedModifier: 0.73, // 原项目mobile版本值
+  creationSpeedModifier: 0.73, // 原项目mobile版本值
+  creationDt: 60, // 原项目mobile版本值是60，不是1000
   
   // 组合设置
-  comboTime: 310 // 原始值
+  comboTime: 310 // 原项目值
 };
 
 // 更新屏幕设置
